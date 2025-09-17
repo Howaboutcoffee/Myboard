@@ -10,7 +10,7 @@
 
 按以下步骤进行面板代码文件迁移：
 
-    git remote set-url origin https://github.com/Howaboutcoffee/Myboard 
+    git remote set-url origin https://github.com/Howaboutcoffee/metaboard 
     git checkout master  
     ./update.sh  
 
