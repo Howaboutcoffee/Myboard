@@ -16,6 +16,9 @@ rm -rf composer.lock composer.phar
 wget https://github.com/composer/composer/releases/latest/download/composer.phar -O composer.phar
 php composer.phar update -vvv
 
+#安装cloudside依赖库
+php composer.phar require "postal/postal:^2.0.1"
+
 php_main_version=$(php -v | head -n 1 | cut -d ' ' -f 2 | cut -d '.' -f 1)
 if [ $php_main_version -ge 8 ]; then
     php composer.phar require joanhey/adapterman
