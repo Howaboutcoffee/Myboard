@@ -40,7 +40,7 @@ class ClientController extends Controller
 
                 // 1. 流量已用光
                 $servers[] = array_merge($template, [
-                    'name' => "⚠️ 您的流量已用光",
+                    'name' => "⛔️ 您的流量已用光,请等待重置日",
                 ]);
 
                 // 2. 距离下次重置
