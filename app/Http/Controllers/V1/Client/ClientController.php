@@ -25,9 +25,43 @@ class ClientController extends Controller
         if ($userService->isAvailable($user)) {
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
+            // 🚨 流量用光时，强制只保留 3 个节点
+            $useTraffic = $user['u'] + $user['d'];
+            $totalTraffic = $user['transfer_enable'];
+            if ($useTraffic >= $totalTraffic) {
+                $expiredDate = $user['expired_at'] ? date('Y-m-d', $user['expired_at']) : '长期有效';
+                $resetDay = $userService->getResetDay($user);
+
+                // 取一个节点作为模板（防止缺少必要字段）
+                $template = $servers[0] ?? [];
+
+                // 清空节点，只保留伪节点
+                $servers = [];
+
+                // 1. 流量已用光
+                $servers[] = array_merge($template, [
+                    'name' => "⚠️ 您的流量已用光",
+                ]);
+
+                // 2. 距离下次重置
+                if ($resetDay) {
+                    $servers[] = array_merge($template, [
+                        'name' => "距离下次重置剩余：{$resetDay} 天",
+                    ]);
+                }
+
+                // 3. 套餐到期
+                $servers[] = array_merge($template, [
+                    'name' => "套餐到期：{$expiredDate}",
+                ]);
+            } else {
+                // 正常情况 → 在节点前插入流量、到期等信息
+                $this->setSubscribeInfoToServers($servers, $user);
+            }
+
+            // 🚀 下面逻辑保持不变
             if($flag) {
                 if (!strpos($flag, 'sing')) {
-                    $this->setSubscribeInfoToServers($servers, $user);
                     foreach (array_reverse(glob(app_path('Protocols') . '/*.php')) as $file) {
                         $file = 'App\\Protocols\\' . basename($file, '.php');
                         $class = new $file($user, $servers);
