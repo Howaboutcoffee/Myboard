@@ -92,6 +92,22 @@ class TicketController extends Controller
                 'message' => $request->input('message')
             ]);
 
+            $ticket_text = $request->input('subject').$request->input('message');
+            if (preg_match("/(挂了|连不上|超时|用不了|失败|不能使用|错误|无法使用|异常)/", $ticket_text)) {
+                $auto_message = "[自动回复] 请先检查是否为本地网络问题并提供详细错误信息供我们排查错误，如果是某个地区或者全部掉线请耐心等待恢复.";
+                
+            } elseif (preg_match("/付款(未到账|不生效)/", $ticket_text)) {
+                $auto_message = "[自动回复] 请提供订单号 等待客服回复.";
+                
+            } else {
+                $auto_message = "[自动回复] 可以先看看“帮助文档中的小白教程”也许不需要等待客服就能解决您的问题呢.";
+            }
+            $ticketService = new TicketService();
+            $ticketService->replyByAdmin(
+                $ticket->id,
+                $auto_message,
+                1
+            );
             DB::commit();
             $this->sendNotify($ticket, $request->input('message'),$request->user['id']);
             return response([
