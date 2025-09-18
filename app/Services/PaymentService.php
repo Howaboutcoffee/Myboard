@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-
 use App\Models\Payment;
 
 class PaymentService
@@ -36,7 +35,7 @@ class PaymentService
         return $this->payment->notify($params);
     }
 
-    public function pay($order, $referer)
+    public function pay($order, $referer = null)
     {
         // custom notify domain name
         $notifyUrl = url("/api/v1/guest/payment/notify/{$this->method}/{$this->config['uuid']}");
@@ -44,15 +43,23 @@ class PaymentService
             $parseUrl = parse_url($notifyUrl);
             $notifyUrl = $this->config['notify_domain'] . $parseUrl['path'];
         }
-        $referer = rtrim($referer, '/');
+
+        // return_url 优先级：前端传 > referer 拼接 > 后端默认
+        if (!empty($order['return_url'])) {
+            $returnUrl = $order['return_url'];
+        } elseif ($referer) {
+            $returnUrl = $referer . '/#/order/' . $order['trade_no'];
+        } else {
+            $returnUrl = url('/#/order/' . $order['trade_no']);
+        }
 
         return $this->payment->pay([
-            'notify_url' => $notifyUrl,
-            'return_url' => $referer . '/#/order/' . $order['trade_no'],
-            'trade_no' => $order['trade_no'],
+            'notify_url'   => $notifyUrl,
+            'return_url'   => $returnUrl,
+            'trade_no'     => $order['trade_no'],
             'total_amount' => $order['total_amount'],
-            'user_id' => $order['user_id'],
-            'stripe_token' => $order['stripe_token']
+            'user_id'      => $order['user_id'],
+            'stripe_token' => $order['stripe_token'] ?? null,
         ]);
     }
 
