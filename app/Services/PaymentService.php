@@ -11,7 +11,7 @@ class PaymentService
     protected $config;
     protected $payment;
 
-    public function __construct($method, $id = NULL, $uuid = NULL)
+    public function __construct($method, $id = null, $uuid = null)
     {
         $this->method = $method;
         $this->class = '\\App\\Payments\\' . $this->method;
@@ -39,9 +39,9 @@ class PaymentService
     {
         // custom notify domain name
         $notifyUrl = url("/api/v1/guest/payment/notify/{$this->method}/{$this->config['uuid']}");
-        if ($this->config['notify_domain']) {
+        if (!empty($this->config['notify_domain'])) {
             $parseUrl = parse_url($notifyUrl);
-            $notifyUrl = $this->config['notify_domain'] . $parseUrl['path'];
+            $notifyUrl = rtrim($this->config['notify_domain'], '/') . $parseUrl['path'];
         }
 
         // return_url 优先级：前端传 > referer 拼接 > 后端默认
