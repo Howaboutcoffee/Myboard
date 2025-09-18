@@ -208,7 +208,6 @@ class OrderController extends Controller
     {
         $tradeNo = $request->input('trade_no');
         $method = $request->input('method');
-        $referer = $request->headers->get('referer');
         $order = Order::where('trade_no', $tradeNo)
             ->where('user_id', $request->user['id'])
             ->where('status', 0)
@@ -234,12 +233,19 @@ class OrderController extends Controller
         }
         $order->payment_id = $method;
         if (!$order->save()) abort(500, __('Request failed, please try again later'));
+
+        // 新增：取 referer + return_url
+        $referer = $request->headers->get('referer');
+        $referer = $referer ? rtrim($referer, '/') : null;
+
         $result = $paymentService->pay([
-            'trade_no' => $tradeNo,
+            'trade_no'     => $tradeNo,
             'total_amount' => isset($order->handling_amount) ? ($order->total_amount + $order->handling_amount) : $order->total_amount,
-            'user_id' => $order->user_id,
-            'stripe_token' => $request->input('token')
+            'user_id'      => $order->user_id,
+            'stripe_token' => $request->input('token'),
+            'return_url'   => $request->input('return_url'),
         ], $referer);
+
         return response([
             'type' => $result['type'],
             'data' => $result['data']
