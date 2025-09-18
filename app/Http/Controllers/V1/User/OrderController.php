@@ -227,20 +227,23 @@ class OrderController extends Controller
         $payment = Payment::find($method);
         if (!$payment || $payment->enable !== 1) abort(500, __('Payment method is not available'));
         $paymentService = new PaymentService($payment->payment, $payment->id);
-        $order->handling_amount = NULL;
+
+        // 计算手续费并写入 total_amount
+        $order->handling_amount = null;
         if ($payment->handling_fee_fixed || $payment->handling_fee_percent) {
             $order->handling_amount = round(($order->total_amount * ($payment->handling_fee_percent / 100)) + $payment->handling_fee_fixed);
+            $order->total_amount += $order->handling_amount;
         }
         $order->payment_id = $method;
         if (!$order->save()) abort(500, __('Request failed, please try again later'));
 
-        // 新增：取 referer + return_url
+        // referer + return_url
         $referer = $request->headers->get('referer');
         $referer = $referer ? rtrim($referer, '/') : null;
 
         $result = $paymentService->pay([
             'trade_no'     => $tradeNo,
-            'total_amount' => isset($order->handling_amount) ? ($order->total_amount + $order->handling_amount) : $order->total_amount,
+            'total_amount' => $order->total_amount,
             'user_id'      => $order->user_id,
             'stripe_token' => $request->input('token'),
             'return_url'   => $request->input('return_url'),
