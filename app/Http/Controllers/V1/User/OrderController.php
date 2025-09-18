@@ -80,13 +80,6 @@ class OrderController extends Controller
             abort(500, __('You have an unpaid or pending order, please try again later or cancel it'));
         }
         if ($request->input('plan_id') == 0) {
-            $amount = $request->input('deposit_amount');
-            if ($amount <= 0) {
-                abort(500, __('Failed to create order, deposit amount must be greater than 0'));
-            }
-            if ($amount >= 9999999 ) {
-                abort(500, __('Deposit amount too large, please contact the administrator'));
-            }
             $user = User::find($request->user['id']);
             DB::beginTransaction();
             $order = new Order();
@@ -95,7 +88,7 @@ class OrderController extends Controller
             $order->plan_id = $request->input('plan_id');
             $order->period = 'deposit';
             $order->trade_no = Helper::generateOrderNo();
-            $order->total_amount = $amount;
+            $order->total_amount = $request->input('deposit_amount');
             
             $orderService->setOrderType($user);
             $orderService->setInvite($user);
@@ -208,6 +201,7 @@ class OrderController extends Controller
     {
         $tradeNo = $request->input('trade_no');
         $method = $request->input('method');
+        $referer = $request->headers->get('referer');
         $order = Order::where('trade_no', $tradeNo)
             ->where('user_id', $request->user['id'])
             ->where('status', 0)
@@ -227,28 +221,18 @@ class OrderController extends Controller
         $payment = Payment::find($method);
         if (!$payment || $payment->enable !== 1) abort(500, __('Payment method is not available'));
         $paymentService = new PaymentService($payment->payment, $payment->id);
-
-        // 计算手续费并写入 total_amount
-        $order->handling_amount = null;
+        $order->handling_amount = NULL;
         if ($payment->handling_fee_fixed || $payment->handling_fee_percent) {
             $order->handling_amount = round(($order->total_amount * ($payment->handling_fee_percent / 100)) + $payment->handling_fee_fixed);
-            $order->total_amount += $order->handling_amount;
         }
         $order->payment_id = $method;
         if (!$order->save()) abort(500, __('Request failed, please try again later'));
-
-        // referer + return_url
-        $referer = $request->headers->get('referer');
-        $referer = $referer ? rtrim($referer, '/') : null;
-
         $result = $paymentService->pay([
-            'trade_no'     => $tradeNo,
-            'total_amount' => $order->total_amount,
-            'user_id'      => $order->user_id,
-            'stripe_token' => $request->input('token'),
-            'return_url'   => $request->input('return_url'),
+            'trade_no' => $tradeNo,
+            'total_amount' => isset($order->handling_amount) ? ($order->total_amount + $order->handling_amount) : $order->total_amount,
+            'user_id' => $order->user_id,
+            'stripe_token' => $request->input('token')
         ], $referer);
-
         return response([
             'type' => $result['type'],
             'data' => $result['data']
@@ -313,7 +297,7 @@ class OrderController extends Controller
 
     private function getbounus($total_amount) {
         $deposit_bounus = config('v2board.deposit_bounus', []);
-        if (empty($deposit_bounus) || $deposit_bounus[0] === null) {
+        if (empty($deposit_bounus)) {
             return 0;
         }
         $add = 0;
